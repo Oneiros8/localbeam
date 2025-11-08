@@ -1,0 +1,13 @@
+# Node
+node_modules/
+dist/
+npm-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Env / OS / tooling
+.env
+.DS_Store
+coverage/
+.vscode/
