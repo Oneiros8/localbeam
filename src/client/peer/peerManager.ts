@@ -28,6 +28,10 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
   private signaling: SignalingClient;
   private clientId: string;
 
+  // track SDP offer/answer processing to avoid duplicate apply/signal race
+  private signaledOffers: Set<string> = new Set();
+  private signaledAnswers: Set<string> = new Set();
+
   constructor(signaling: SignalingClient, clientId: string) {
     super();
     this.signaling = signaling;
@@ -70,12 +74,23 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
     const peerId = msg.clientId;
     if (!peerId) return logWarn("Offer missing clientId");
 
+    // If we already have a peer object -> pass through (but drop duplicate SDP offers)
     if (this.peers.has(peerId)) {
+      // Only ignore duplicate *SDP* offers; continue to accept ICE (candidates)
+      if (msg.payload?.type === "offer" && this.signaledOffers.has(peerId)) {
+        logInfo(`Duplicate SDP offer from ${peerId} ignored.`);
+        return;
+      }
+
       const existing = this.peers.get(peerId)!;
-      if (msg.payload) existing.signal(msg.payload);
+      if (msg.payload) {
+        if (msg.payload.type === "offer") this.signaledOffers.add(peerId);
+        existing.signal(msg.payload);
+      }
       return;
     }
 
+    // New incoming peer (answerer)
     const peer = new SimplePeer({
       initiator: false,
       trickle: true,
@@ -86,10 +101,16 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
       },
     });
 
+    // wire events centrally
     this.setupPeerEvents(peerId, peer);
     this.registerPeer(peerId, peer);
 
+    // when we generate signals (answers / ice) send them
     peer.on("signal", (data: any) => {
+      // if the signal is an SDP answer, remember we've sent/processed it
+      if (data?.type === "answer") {
+        this.signaledAnswers.add(peerId);
+      }
       const answerMsg: SignalMessage = {
         type: "answer",
         clientId: this.clientId,
@@ -99,17 +120,30 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
       this.signaling.send(answerMsg);
     });
 
-    if (msg.payload) peer.signal(msg.payload);
+    // If the incoming message includes payload (the offer), apply it.
+    if (msg.payload) {
+      if (msg.payload.type === "offer") this.signaledOffers.add(peerId);
+      peer.signal(msg.payload);
+    }
   }
 
   private async handleAnswer(msg: SignalMessage) {
     const peerId = msg.clientId;
     if (!peerId) return logWarn("Answer missing clientId");
 
+    // ignore duplicate SDP answers — allow ICE through (candidates)
+    if (msg.payload?.type === "answer" && this.signaledAnswers.has(peerId)) {
+      logInfo(`Duplicate SDP answer from ${peerId} ignored.`);
+      return;
+    }
+
     const peer = this.peers.get(peerId);
     if (!peer) return logWarn(`No peer found for ${peerId}`);
 
-    if (msg.payload) peer.signal(msg.payload);
+    if (msg.payload) {
+      if (msg.payload.type === "answer") this.signaledAnswers.add(peerId);
+      peer.signal(msg.payload);
+    }
   }
 
   private async handleCandidate(msg: SignalMessage) {
@@ -129,7 +163,7 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
       return;
     }
 
-    logInfo(`📡 Creating connection to ${peerId}`);
+    logInfo(`Creating connection to ${peerId}`);
     const peer = new SimplePeer({
       initiator: true,
       trickle: true,
@@ -143,7 +177,12 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
     this.setupPeerEvents(peerId, peer);
     this.registerPeer(peerId, peer);
 
+    // signal handler: send offers/ice to remote via signaling server
     peer.on("signal", (data: any) => {
+      // only mark offer when we actually produced an SDP offer
+      if (data?.type === "offer") {
+        this.signaledOffers.add(peerId);
+      }
       const offerMsg: SignalMessage = {
         type: "offer",
         clientId: this.clientId,
@@ -172,17 +211,23 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
       logInfo(`Connected to peer ${peerId}`);
       this.connectedPeers.add(peerId);
 
-      //Attach DirectTransfer
+      // Attach DirectTransfer
       const transfer = new DirectTransfer();
       const context: TransferContext = { peer, peerId };
       transfer.attach(context);
 
+      // forward data events from transfer to consumers
       transfer.onData((data, from) => {
         this.emit("data", from, data);
       });
 
       this.transfers.set(peerId, transfer);
       this.emit("peer-connected", peerId);
+    });
+
+    // keep relaying raw 'data' too as a fallback (DirectTransfer also emits)
+    peer.on("data", (d: any) => {
+      this.emit("data", peerId, d);
     });
   }
 
@@ -220,6 +265,9 @@ export class PeerManager extends EventEmitter<PeerManagerEvents> {
     }
 
     this.connectedPeers.delete(peerId);
+    // clear signaled trackers so reconnects can retry cleanly
+    this.signaledOffers.delete(peerId);
+    this.signaledAnswers.delete(peerId);
   }
 
   /** Close all peer connections */

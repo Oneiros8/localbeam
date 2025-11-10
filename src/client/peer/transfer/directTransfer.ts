@@ -69,28 +69,32 @@ export class DirectTransfer implements TransferStrategy {
     this.onDataCallback = null;
   }
 
-  private async encodeData(
-    data: string | ArrayBuffer | Blob
-  ): Promise<ArrayBuffer | string> {
+  private async encodeData(data: any): Promise<ArrayBuffer | string> {
     if (typeof data === "string") return data;
     if (data instanceof ArrayBuffer) return data;
     if (data instanceof Blob) return await data.arrayBuffer();
+
+    if (typeof data === "object") {
+      return JSON.stringify(data);
+    }
+
     throw new Error("Unsupported data type");
   }
 
+
   private decodeData(data: Uint8Array): any {
     try {
-      // Try to decode as text (UTF-8)
       const text = new TextDecoder("utf-8").decode(data);
-
-      // Try to parse JSON — if not JSON, just return the text
       try {
-        return JSON.parse(text);
+        const parsed = JSON.parse(text);
+        if (parsed?.type === "file" && parsed.data) {
+          return parsed;
+        }
+        return parsed;
       } catch {
         return text;
       }
     } catch {
-      // Fallback — return raw bytes if decoding fails
       return data;
     }
   }
