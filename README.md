@@ -179,6 +179,36 @@ LocalBeam
 - Offline-first syncing
 - Local multiplayer games
 
+## 🗺️ Roadmap
+
+Here's what's coming next in LocalBeam:
+
+### 📱 Reference Applications
+- **React File Transfer App**: A polished, production-ready example showcasing real-time file sharing and chat
+- **Electron Desktop Client**: Cross-platform desktop application demonstrating native integration capabilities
+- Both applications will serve as comprehensive implementation guides for the community
+
+### 🌍 Global Connectivity
+- **Cloud Signaling Infrastructure**: Optional hosted signaling service for beyond-LAN connections
+- **Secure Remote Discovery**: Encrypted peer discovery without mDNS dependency
+- **Authentication & Authorization**: Built-in support for secure peer verification
+- **NAT Traversal**: Improved STUN/TURN support for reliable connections across networks
+
+### ⚡ Performance Enhancements
+- **Streaming Transfer Strategy**: Efficient handling of large files (100MB+)
+- **Chunked File Protocol**: Resume support and progress tracking
+- **Compression Options**: Smart compression based on file types
+- **Multi-Connection Transfer**: Parallel chunk transfer for faster speeds
+
+### 🎯 Future Features
+- Enhanced encryption and security features
+- Connection quality metrics and diagnostics
+- Plugin system for custom transfer strategies
+- Mobile platform support (React Native)
+- And more coming soon...
+
+Follow the [GitHub repository](https://github.com/Oneiros8/localbeam) for updates!
+
 ## 🤝 Contributing
 
 Contributions are welcome!
