@@ -2,6 +2,20 @@
   "name": "localbeam",
   "version": "0.1.1",
   "description": "Lightweight local network peer discovery and data transfer library using WebRTC + Bonjour.",
+  "keywords": [
+    "webrtc",
+    "peer-to-peer",
+    "p2p",
+    "local-network",
+    "bonjour",
+    "zeroconf",
+    "network-discovery",
+    "peer-discovery",
+    "file-transfer",
+    "realtime"
+  ],
+  "license": "MIT",
+  "author": "Nikhil Raj",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
