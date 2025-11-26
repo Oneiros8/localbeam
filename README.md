@@ -136,6 +136,12 @@ LocalBeam
 └── examples/react-demo/   # Example React app
 ```
 
+## 📦 Example Implementations
+
+| Project | Type | Status | Repo |
+|--------|------|:------:|------|
+| `localbeam-react` | React example app demonstrating peer discovery & file transfer | ✅ Done | [localbeam-react](https://github.com/Oneiros8/localbeam-react) |
+
 ## ⚙️ Configuration
 
 | Option | Default | Description |
